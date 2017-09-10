@@ -6,7 +6,6 @@
 #include <fcntl.h>
 
 #define DEVICE_PATH "/dev/S3554025Device"
-#define OSP_HELLOWORLD_MESSAGE "This is assignment 1 message to my device"
 
 int main()
 {
@@ -26,10 +25,11 @@ int main()
 
 	// Write to device
 	printf("[INFO] Writing to device...\n");
+	char * test_str = "This is assignment 1 message to my device";
 	int write_result = write(
 			file_ref,
-			OSP_HELLOWORLD_MESSAGE,
-			strlen(OSP_HELLOWORLD_MESSAGE));
+			test_str,
+			strlen(test_str));
 
 	if(write_result < 0)
 	{

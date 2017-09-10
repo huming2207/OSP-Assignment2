@@ -1,0 +1,1 @@
+KERNEL=="S3554025Device", SUBSYSTEM=="osp_a2", MODE="0666"

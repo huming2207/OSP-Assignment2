@@ -109,7 +109,7 @@ static ssize_t device_read(struct file * file_pointer, char * str_buffer, size_t
 static ssize_t device_write(struct file * file_pointer, const char * str_buffer, size_t str_length, loff_t * offset)
 {
 	// Copy string buffer
-	strcpy(message_container.osp_message_payload, str_buffer);
+	sprintf(message_container.osp_message_payload, "%s", str_buffer);
 
 	// Set the length for device_read function
 	message_container.message_size = strlen(str_buffer);
