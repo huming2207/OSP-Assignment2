@@ -37,9 +37,9 @@ static int __init osp_a2s1_init(void)
 	if(IS_ERR(osp_device_class))
 	{
 		// If things goes wrong, unregister char device
-		printk(KERN_ERR "OSP_A2S1: Failed to create device class, error code %d\n", PTR_ERROR(osp_device_class));
-		unregister_chardev(major_number, CHAR_DEVICE_NAME);
-		return PTR_ERROR(osp_device_class);
+		printk(KERN_ERR "OSP_A2S1: Failed to create device class, error code %ld\n", PTR_ERR(osp_device_class));
+		unregister_chrdev(major_number, CHAR_DEVICE_NAME);
+		return PTR_ERR(osp_device_class);
 	}
 	else
 	{
@@ -52,9 +52,9 @@ static int __init osp_a2s1_init(void)
 	if(IS_ERR(osp_device))
 	{
 		class_destroy(osp_device_class);
-		unregister_chardev(major_number, CHAR_DEVICE_NAME);
-		printk(KERN_ERR "OSP_A2S1: Failed to create the char device, error code %d", PTR_ERROR(osp_device_class));
-		return PTR_ERROR(osp_device);
+		unregister_chrdev(major_number, CHAR_DEVICE_NAME);
+		printk(KERN_ERR "OSP_A2S1: Failed to create the char device, error code %ld\n", PTR_ERR(osp_device_class));
+		return PTR_ERR(osp_device);
 	}
 	else
 	{
@@ -66,7 +66,7 @@ static int __init osp_a2s1_init(void)
 }
 
 
-static int __exit osp_a2s1_exit(void)
+static void __exit osp_a2s1_exit(void)
 {
 	// Free mutex
 	mutex_destroy(&osp_mutex);
@@ -79,10 +79,8 @@ static int __exit osp_a2s1_exit(void)
 	class_destroy(osp_device_class);
 
 	// Unregister char device
-	unregister_chardev(major_number, CHAR_DEVICE_NAME);
+	unregister_chrdev(major_number, CHAR_DEVICE_NAME);
 	printk(KERN_ALERT "OSP_A2S1: Device unloaded.\n");
-
-	return 0;
 }
 
 static ssize_t device_read(struct file * file_pointer, char * str_buffer, size_t str_length, loff_t * offset)

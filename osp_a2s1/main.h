@@ -1,11 +1,11 @@
-#include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/device.h>
+#include <linux/kernel.h>
 #include <linux/fs.h>
 #include <linux/mutex.h>
+#include <linux/err.h>
 #include <asm/uaccess.h>
-#include <sys/types.h>
 
 MODULE_AUTHOR("Ming Hu s3554025");
 MODULE_LICENSE("GPL and additional rights");
@@ -26,8 +26,8 @@ static DEFINE_MUTEX(osp_mutex);
 static int major_number;
 struct osp_message_container
 {
-	static char osp_message_payload[100];
-	static int message_size;
+	char osp_message_payload[100];
+	int message_size;
 };
 
 static struct osp_message_container message_container;
