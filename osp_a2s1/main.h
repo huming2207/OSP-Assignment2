@@ -15,7 +15,7 @@ MODULE_VERSION("1.0");
 #define CHAR_DEVICE_NAME "S3554025Device" // Will be "/dev/S3554025Device"
 #define DEVICE_CLASS_NAME "osp_a2" // Will be "/sys/class/osp_a2/S3554025Device"
 
-static ssize_t device_read(struct file *, char *, size_t, loff_t *);
+static ssize_t device_read(struct file * , char *, size_t, loff_t *);
 static ssize_t device_write(struct file *, const char *, size_t, loff_t *);
 static int device_open(struct inode *, struct file *);
 static int device_release(struct inode *, struct file *);
@@ -26,8 +26,8 @@ static DEFINE_MUTEX(osp_mutex);
 static int major_number;
 struct osp_message_container
 {
-	char message_payload[100];
-	int message_size;
+	static char osp_message_payload[100];
+	static int message_size;
 };
 
 static struct osp_message_container message_container;
