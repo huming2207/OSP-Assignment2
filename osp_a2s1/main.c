@@ -3,6 +3,7 @@
 // Put file_ops in this file as Ecplise CDT is too stupid.
 static struct file_operations file_ops =
 {
+		.owner = THIS_MODULE,
 		.read = device_read,
 		.write = device_write,
 		.open = device_open,
@@ -83,12 +84,14 @@ static void __exit osp_a2s1_exit(void)
 	printk(KERN_ALERT "OSP_A2S1: Device unloaded.\n");
 }
 
-static ssize_t device_read(struct file * file_pointer, char * str_buffer, size_t str_length, loff_t * offset)
+static ssize_t device_read(struct file * file_pointer, char __user * str_buffer, size_t str_length, loff_t * offset)
 {
-	int copy_result = copy_to_user(
+	int copy_result;
+	printk(KERN_ALERT "OSP_A2S1: device_read started...");
+	copy_result = copy_to_user(
 			str_buffer,
-			message_container.osp_message_payload,
-			message_container.message_size);
+			osp_message_payload,
+			message_size);
 
 	// Result must be 0, or something goes wrong again.
 	if(copy_result != 0)
@@ -99,22 +102,30 @@ static ssize_t device_read(struct file * file_pointer, char * str_buffer, size_t
 	else
 	{
 		// Print length and wipe up the container
-		printk(KERN_ALERT "OSP_A2S1: Copy successful, length: %d\n", message_container.message_size);
-		memset(message_container.osp_message_payload, '\0', sizeof(message_container.osp_message_payload));
-		message_container.message_size = 0;
+		printk(KERN_ALERT "OSP_A2S1: Copy successful, length: %d\n", message_size);
+		memset(osp_message_payload, '\0', 100);
+		message_size = 0;
 		return 0;
 	}
 }
 
-static ssize_t device_write(struct file * file_pointer, const char * str_buffer, size_t str_length, loff_t * offset)
+static ssize_t device_write(struct file * file_pointer, const char __user * str_buffer, size_t str_length, loff_t * offset)
 {
+	int copy_result;
+	printk(KERN_ALERT "OSP_A2S1: device_write started...");
+
 	// Copy string buffer
-	sprintf(message_container.osp_message_payload, "%s", str_buffer);
+	copy_result = copy_from_user(osp_message_payload, str_buffer, str_length);
+	if(copy_result != 0)
+	{
+		printk(KERN_ERR "OSP_A2S1: Copy buffer from user space failed, function returned %d\n", copy_result);
+		return -EFAULT;
+	}
+
+	printk(KERN_ALERT "OSP_A2S1: Copy from user space finished.\n");
 
 	// Set the length for device_read function
-	message_container.message_size = strlen(str_buffer);
-
-	printk(KERN_ALERT "OSP_A2S1: Got message from user space: %s\n", str_buffer);
+	message_size = strlen(osp_message_payload);
 	return str_length;
 }
 

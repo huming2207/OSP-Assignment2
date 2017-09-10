@@ -23,14 +23,12 @@ static int device_release(struct inode *, struct file *);
 // Use mutex as it's the new API
 static DEFINE_MUTEX(osp_mutex);
 
+// OSP related hello world message
 static int major_number;
-struct osp_message_container
-{
-	char osp_message_payload[100];
-	int message_size;
-};
+static char osp_message_payload[100];
+static int message_size;
 
-static struct osp_message_container message_container;
+
 
 static struct class * osp_device_class;
 static struct device * osp_device;

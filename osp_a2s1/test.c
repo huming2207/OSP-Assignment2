@@ -42,7 +42,7 @@ int main()
 	}
 
 	// Read from device
-	char message_buffer[100];
+	char message_buffer[100] = {0};
 
 	int read_result = read(file_ref, message_buffer, 100);
 	if(read_result < 0)
@@ -52,7 +52,7 @@ int main()
 	}
 	else
 	{
-		printf("[SUCCESS] Message read: \"%s\"", message_buffer);
+		printf("[SUCCESS] Message read: \"%s\"\n", message_buffer);
 		printf("[SUCCESS] All test passed!\n");
 		return 0;
 	}
