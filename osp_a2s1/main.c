@@ -12,7 +12,7 @@ static struct file_operations file_ops =
 
 static int __init osp_a2s1_init(void)
 {
-	printk(KERN_ALERT "OSP_A2S1: Loading kernel module...\n");
+	printk(KERN_INFO "OSP_A2S1: Loading kernel module...\n");
 
 	// Register char device
 	// 0 here means asking OS give me a major device number
@@ -22,12 +22,12 @@ static int __init osp_a2s1_init(void)
 	// It must be wrong if it's -1 (or something else whatever)
 	if(major_number < 0)
 	{
-		printk(KERN_ERR "OSP_A2S1: registering char device failed, kernel returned %d\n", major_number);
+		printk(KERN_ERR "OSP_A2S1: Registering char device failed, kernel returned %d .\n", major_number);
 		return major_number;
 	}
 	else
 	{
-		printk(KERN_ALERT "OSP_A2S1: char device registered with major device number: %d\n", major_number);
+		printk(KERN_INFO "OSP_A2S1: Char device registered with major device number: %d .\n", major_number);
 	}
 
 	// Register device class
@@ -38,13 +38,13 @@ static int __init osp_a2s1_init(void)
 	if(IS_ERR(osp_device_class))
 	{
 		// If things goes wrong, unregister char device
-		printk(KERN_ERR "OSP_A2S1: Failed to create device class, error code %ld\n", PTR_ERR(osp_device_class));
+		printk(KERN_ERR "OSP_A2S1: Failed to create device class, error code %ld .\n", PTR_ERR(osp_device_class));
 		unregister_chrdev(major_number, CHAR_DEVICE_NAME);
 		return PTR_ERR(osp_device_class);
 	}
 	else
 	{
-		printk(KERN_ALERT "OSP_A2S1: device class registered successfully.\n");
+		printk(KERN_INFO "OSP_A2S1: Device class registered successfully.\n");
 	}
 
 	// Register device, create something at "/dev"
@@ -54,13 +54,13 @@ static int __init osp_a2s1_init(void)
 	{
 		class_destroy(osp_device_class);
 		unregister_chrdev(major_number, CHAR_DEVICE_NAME);
-		printk(KERN_ERR "OSP_A2S1: Failed to create the char device, error code %ld\n", PTR_ERR(osp_device_class));
+		printk(KERN_ERR "OSP_A2S1: Failed to create the char device, error code %ld .\n", PTR_ERR(osp_device_class));
 		return PTR_ERR(osp_device);
 	}
 	else
 	{
 		mutex_init(&osp_mutex);
-		printk(KERN_ALERT "OSP_A2S1: Initialization finished successfully, winner winner, chicken dinner!\n");
+		printk(KERN_INFO "OSP_A2S1: Initialization finished successfully, winner winner, chicken dinner!\n");
 		return 0;
 	}
 
@@ -81,13 +81,13 @@ static void __exit osp_a2s1_exit(void)
 
 	// Unregister char device
 	unregister_chrdev(major_number, CHAR_DEVICE_NAME);
-	printk(KERN_ALERT "OSP_A2S1: Device unloaded.\n");
+	printk(KERN_INFO "OSP_A2S1: Device unloaded.\n");
 }
 
 static ssize_t device_read(struct file * file_pointer, char __user * str_buffer, size_t str_length, loff_t * offset)
 {
 	int copy_result;
-	printk(KERN_ALERT "OSP_A2S1: device_read started...");
+	printk(KERN_INFO "OSP_A2S1: Device_read started...");
 	copy_result = copy_to_user(
 			str_buffer,
 			osp_message_payload,
@@ -101,9 +101,12 @@ static ssize_t device_read(struct file * file_pointer, char __user * str_buffer,
 	}
 	else
 	{
-		// Print length and wipe up the container
-		printk(KERN_ALERT "OSP_A2S1: Copy successful, length: %d\n", message_size);
-		memset(osp_message_payload, '\0', 100);
+		// Print length
+		printk(KERN_INFO "OSP_A2S1: Copy successful, length: %d\n", message_size);
+		printk(KERN_INFO "OSP_A2S1: Message: \"%s\"", osp_message_payload);
+
+
+		vfree(osp_message_payload);
 		message_size = 0;
 		return 0;
 	}
@@ -112,7 +115,20 @@ static ssize_t device_read(struct file * file_pointer, char __user * str_buffer,
 static ssize_t device_write(struct file * file_pointer, const char __user * str_buffer, size_t str_length, loff_t * offset)
 {
 	int copy_result;
-	printk(KERN_ALERT "OSP_A2S1: device_write started...");
+	printk(KERN_INFO "OSP_A2S1: Device_write started...");
+
+	// Initialize and wipe the message memory area first before using
+	osp_message_payload = vmalloc(str_length);
+	if(osp_message_payload != NULL)
+	{
+		// Wipe the memory area before using...
+		memset(osp_message_payload, '\0', (size_t)message_size);
+	}
+	else
+	{
+		printk(KERN_ERR "OSP_A2S1: Message payload initialization failed!");
+		return -EFAULT;
+	}
 
 	// Copy string buffer
 	copy_result = copy_from_user(osp_message_payload, str_buffer, str_length);
@@ -122,7 +138,7 @@ static ssize_t device_write(struct file * file_pointer, const char __user * str_
 		return -EFAULT;
 	}
 
-	printk(KERN_ALERT "OSP_A2S1: Copy from user space finished.\n");
+	printk(KERN_INFO "OSP_A2S1: Copy from user space finished.\n");
 
 	// Set the length for device_read function
 	message_size = strlen(osp_message_payload);
@@ -137,14 +153,14 @@ static int device_open(struct inode * inode_pointer, struct file * file_pointer)
 		return -EBUSY;
 	}
 
-	printk(KERN_ALERT "OSP_A2S1: Device opened.\n");
+	printk(KERN_INFO "OSP_A2S1: Device opened.\n");
 	return 0;
 }
 
 static int device_release(struct inode * inode_pointer, struct file * file_pointer)
 {
 	mutex_unlock(&osp_mutex);
-	printk(KERN_ALERT "OSP_A2S1: Device released.\n");
+	printk(KERN_INFO "OSP_A2S1: Device released.\n");
 	return 0;
 }
 

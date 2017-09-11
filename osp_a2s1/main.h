@@ -5,6 +5,7 @@
 #include <linux/fs.h>
 #include <linux/mutex.h>
 #include <linux/err.h>
+#include <linux/vmalloc.h>
 #include <asm/uaccess.h>
 
 MODULE_AUTHOR("Ming Hu s3554025");
@@ -25,7 +26,7 @@ static DEFINE_MUTEX(osp_mutex);
 
 // OSP related hello world message
 static int major_number;
-static char osp_message_payload[100];
+static char * osp_message_payload;
 static int message_size;
 
 
