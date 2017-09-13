@@ -102,7 +102,7 @@ static ssize_t device_read(struct file * file_pointer, char __user * str_buffer,
 	else
 	{
 		// Print length
-		printk(KERN_INFO "OSP_A2S1: Copy successful, length: %d\n", message_size);
+		printk(KERN_INFO "OSP_A2S1: Copy successful, length: %zu\n", message_size);
 		printk(KERN_INFO "OSP_A2S1: Message: \"%s\"", osp_message_payload);
 
 
@@ -122,7 +122,7 @@ static ssize_t device_write(struct file * file_pointer, const char __user * str_
 	if(osp_message_payload != NULL)
 	{
 		// Wipe the memory area before using...
-		memset(osp_message_payload, '\0', (size_t)message_size);
+		memset(osp_message_payload, '\0', message_size);
 	}
 	else
 	{

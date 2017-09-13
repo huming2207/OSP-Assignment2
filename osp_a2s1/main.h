@@ -27,7 +27,7 @@ static DEFINE_MUTEX(osp_mutex);
 // OSP related hello world message
 static int major_number;
 static char * osp_message_payload;
-static int message_size;
+static size_t message_size;
 
 
 
